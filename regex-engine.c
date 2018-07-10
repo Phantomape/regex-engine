@@ -27,6 +27,18 @@ typedef struct regex_t {
     };
 } regex_t;
 
+static int match_pattern(regex_t* pattern, const char* text);
+static int match_charclass(char c, const char* str);
+static int match_star(regex_t p, regex_t* pattern, const char* text);
+static int match_plus(regex_t p, regex_t* pattern, const char* text);
+static int match_one(regex_t p, char c);
+static int match_digit(char c);
+static int match_alpha(char c);
+static int match_whitespace(char c);
+static int match_metachar(char c, const char* str);
+static int match_range(char c, const char* str);
+static int is_metachar(char c);
+
 /* re_match: search for regexp anywhere in text */
 int re_match(const char *regexp, const char *text) {
     return re_match_pattern(re_compile(regexp), text);
@@ -34,9 +46,18 @@ int re_match(const char *regexp, const char *text) {
 
 /* re_match_pattern: search for pattern anywhere in text and return the index */
 int re_match_pattern(re_t pattern, const char *text) {
-    if (pattern == 0) {
+    if (pattern == 0)
         return -1;
-    }
+
+    if (pattern[0].type == BEGIN)
+        return (match_pattern(&pattern[1], text) ? 0 : -1);
+
+    int idx = -1;
+    do {
+        idx += 1;
+        if (match_pattern(pattern, text))
+            return idx;
+    } while (*text++ != '\0');
 }
 
 /* match: search for regexp anywhere in text */
