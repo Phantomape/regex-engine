@@ -34,10 +34,31 @@ static int match_plus(regex_t p, regex_t* pattern, const char* text);
 static int match_one(regex_t p, char c);
 static int match_digit(char c);
 static int match_alpha(char c);
+static int match_alphanum(char c);
 static int match_whitespace(char c);
 static int match_metachar(char c, const char* str);
 static int match_range(char c, const char* str);
 static int is_metachar(char c);
+
+static int match_digit(char c) {
+    return c >= '0' && c <= '9';
+}
+
+static int match_alpha(char c) {
+    return ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'));
+}
+
+static int match_whitespace(char c) {
+    // \t: horizontal tab
+    // \v: vertical tab
+    // \n: ASCII linefeed
+    // \f: ASCII formfeed
+    return (c == ' ') || (c == '\t') || (c == '\n') || (c == '\f') || (c == '\v');
+}
+
+static int match_alphanum(char c) {
+    return match_alpha(c) || match_digit(c);
+}
 
 /* re_match: search for regexp anywhere in text */
 int re_match(const char *regexp, const char *text) {
