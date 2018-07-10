@@ -1,3 +1,44 @@
+#include "regex-engine.h"
+
+enum { 
+    UNUSED, 
+    DOT, 
+    BEGIN, 
+    END, 
+    QUESTIONMARK, 
+    STAR, 
+    PLUS, 
+    CHAR, 
+    CHAR_CLASS, 
+    INV_CHAR_CLASS, 
+    DIGIT, 
+    NOT_DIGIT, 
+    ALPHA, 
+    NOT_ALPHA, 
+    WHITESPACE, 
+    NOT_WHITESPACE, /* BRANCH */ 
+};
+
+typedef struct regex_t {
+    unsigned char  type;     /* Enum type: CHAR, STAR, etc.           */
+    union {
+        unsigned char  ch;   /*      the character itself             */
+        unsigned char* ccl;  /*  OR  a pointer to characters in class */
+    };
+} regex_t;
+
+/* re_match: search for regexp anywhere in text */
+int re_match(const char *regexp, const char *text) {
+    return re_match_pattern(re_compile(regexp), text);
+}
+
+/* re_match_pattern: search for pattern anywhere in text and return the index */
+int re_match_pattern(re_t pattern, const char *text) {
+    if (pattern == 0) {
+        return -1;
+    }
+}
+
 /* match: search for regexp anywhere in text */
 int match(char *regexp, char *text) {
     // If the first character of the regular expression is ^ (an anchored match), 

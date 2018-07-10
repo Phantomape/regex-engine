@@ -2,7 +2,7 @@
 extern "C" {
 #endif
 
-#include <regex.h>
+typedef struct regex_t* re_t;
 
 /* Compile regex string pattern to a regex_t-array. */
 regex_t* re_compile(const char *pattern);
