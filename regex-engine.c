@@ -118,12 +118,24 @@ int matchhere(char *regexp, char *text) {
     if (regexp[0] == '$' && regexp[1] == '\0')
         return *text == '\0';
 
+    // If the regular expression is a ?, then we would want to match the character before
+    // ? 0 or 1 time
+    if (regexp[1] == '?')
+        return match_question(regexp, text);
+
     // If we are not at the end of the text string, which is, *text!='\0', and if the 
     // first character of the text string matches the first character of the regular 
     // expression
     if (*text != '\0' && (regexp[0] == '.' || regexp[0] == *text))
         return matchhere(regexp + 1, text + 1);
+
     return 0;
+}
+
+/* match_question: search for 'c?' in the text */
+int match_question(char *regexp, char *text) {
+    return ((*text == *regexp || *regexp == '.') && matchhere(regexp + 2, text + 1))
+        || matchhere(regexp + 2, text);
 }
 
 /* matchstar_shortest: shortest search for 'c*' regexp at beginning of text */
