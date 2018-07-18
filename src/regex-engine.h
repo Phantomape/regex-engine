@@ -2,6 +2,14 @@
 extern "C" {
 #endif
 
+typedef struct regex_t {
+    unsigned char  type;     /* Enum type: CHAR, STAR, etc.           */
+    union {
+        unsigned char  ch;   /*      the character itself             */
+        unsigned char* ccl;  /*  OR  a pointer to characters in class */
+    };
+} regex_t;
+
 typedef struct regex_t* re_t;
 
 /* Compile regex string pattern to a regex_t-array. */

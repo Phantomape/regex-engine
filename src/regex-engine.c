@@ -23,14 +23,6 @@ enum {
     BRANCH,
 };
 
-typedef struct regex_t {
-    unsigned char  type;     /* Enum type: CHAR, STAR, etc.           */
-    union {
-        unsigned char  ch;   /*      the character itself             */
-        unsigned char* ccl;  /*  OR  a pointer to characters in class */
-    };
-} regex_t;
-
 static int match_pattern(regex_t* pattern, const char* text);
 static int match_charclass(char c, const char* str);
 static int match_star(regex_t p, regex_t* pattern, const char* text);
