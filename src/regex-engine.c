@@ -56,6 +56,28 @@ static int match_alphanum(char c) {
     return match_alpha(c) || match_digit(c);
 }
 
+static int match_pattern(regex_t* pattern, const char* text) {
+    /*
+    do {
+        if ((pattern[0].type == UNUSED) || (pattern[1].type == QUESTIONMARK)) {
+            return match_question(pattern[0], &pattern[2], text);
+        } else if (pattern[1].type == STAR) {
+            return match_star(pattern[0], &pattern[2], text);
+        } else if (pattern[1].type == PLUS) {
+            return match_plus(pattern[0], &pattern[2], text);
+        } else if ((pattern[0].type == END) && pattern[1].type == UNUSED) {
+            return (text[0] == '\0');
+        }
+    /*  Branching is not working properly
+        else if (pattern[1].type == BRANCH)
+        {
+        return (matchpattern(pattern, text) || matchpattern(&pattern[2], text));
+        }
+    } while ((text[0] != '\0') && match_one(*pattern++, *text++));
+    */
+    return 0;
+}
+
 /* re_match: search for regexp anywhere in text */
 int re_match(const char *regexp, const char *text) {
     return re_match_pattern(re_compile(regexp), text);
@@ -239,4 +261,17 @@ int matchstar_longest(int c, char *regexp, char *text) {
         if (matchhere(regexp, t))   return 1;
     } while (t-- > text);
     return 0;
+}
+
+/* re2post: convert infix regexp to postfix notation */
+char* re2post(char *re) {
+    int nalt, natom;
+    static char buf[8000];
+    char *dst;
+    struct {
+        int nalt;
+        int natom;
+    } paren[100], *p;
+
+    p = paren;
 }
