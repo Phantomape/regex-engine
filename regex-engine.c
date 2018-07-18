@@ -1,5 +1,8 @@
 #include "regex-engine.h"
 
+#define MAX_REGEXP_OBJECTS 30    /* Max number of regex symbols in expression. */
+#define MAX_CHAR_CLASS_LEN 40    /* Max length of character-class buffer in.   */
+
 enum { 
     UNUSED, 
     DOT, 
@@ -16,7 +19,8 @@ enum {
     ALPHA, 
     NOT_ALPHA, 
     WHITESPACE, 
-    NOT_WHITESPACE, /* BRANCH */ 
+    NOT_WHITESPACE,
+    BRANCH,
 };
 
 typedef struct regex_t {
@@ -79,6 +83,95 @@ int re_match_pattern(re_t pattern, const char *text) {
         if (match_pattern(pattern, text))
             return idx;
     } while (*text++ != '\0');
+}
+
+/* re_compile: convert the string of pattern into regexp objects */
+re_t re_compile(const char *pattern) {
+    static regex_t re_compiled[MAX_REGEXP_OBJECTS];
+    static unsigned char ccl_buf[MAX_CHAR_CLASS_LEN];
+    int ccl_buf_idx = 1;
+
+    char c;     // current char in pattern
+    int i = 0;  // index into pattern
+    int j = 0;  // index into re_compiled array
+
+    while (pattern[i] != '\0' && (j + 1 < MAX_REGEXP_OBJECTS)) {
+        c = pattern[i];
+
+        switch (c) {
+            case '^': {    re_compiled[j].type = BEGIN;           } break;
+            case '$': {    re_compiled[j].type = END;             } break;
+            case '.': {    re_compiled[j].type = DOT;             } break;
+            case '*': {    re_compiled[j].type = STAR;            } break;
+            case '+': {    re_compiled[j].type = PLUS;            } break;
+            case '?': {    re_compiled[j].type = QUESTIONMARK;    } break;
+            case '|': {    re_compiled[j].type = BRANCH;          } break;
+
+            // Escaped character
+            case '\\': {
+                if (pattern[i + 1] == '\0') {
+                    // TODO(X): invalid regexp, throw an error maybe
+                    return -1;
+                }
+
+                i += 1; // Skip the escape-char
+                switch (pattern[i]) {
+                    case 'd': {    re_compiled[j].type = DIGIT;            } break;
+                    case 'D': {    re_compiled[j].type = NOT_DIGIT;        } break;
+                    case 'w': {    re_compiled[j].type = ALPHA;            } break;
+                    case 'W': {    re_compiled[j].type = NOT_ALPHA;        } break;
+                    case 's': {    re_compiled[j].type = WHITESPACE;       } break;
+                    case 'S': {    re_compiled[j].type = NOT_WHITESPACE;   } break;
+                    default: {
+                        re_compiled[j].type = CHAR;
+                        re_compiled[j].ch = pattern[i];
+                    } break;
+                }
+            } break;
+
+            // Character class
+            case '[': {
+                int buf_begin = ccl_buf_idx;
+                if (pattern[i + 1] == '^') {
+                    re_compiled[j].type = INV_CHAR_CLASS;
+                    i += 1;
+                } else {
+                    re_compiled[j].type = CHAR_CLASS;
+                }
+
+                // Copy character inside [..] into a buffer, the first condition
+                // is the normal termination condition while the second condition
+                // is only for invalid regexp
+                while (pattern[++i] != ']' && pattern[i] != '\0') {
+                    if (ccl_buf_idx >= MAX_CHAR_CLASS_LEN) {
+                        return -1;
+                    }
+                    ccl_buf[ccl_buf_idx++] = pattern[i];
+                }
+
+                // Catches cases such as [00000000000000000000000000000000000000][
+                // I think there is a better way, which is to add lines similar to
+                // line 112
+                if (ccl_buf_idx >= MAX_CHAR_CLASS_LEN) {
+                    return -1;
+                }
+                ccl_buf[ccl_buf_idx++] = 0;
+                re_compiled[j].ccl = &ccl_buf[buf_begin];
+            } break;
+
+            default: {
+                re_compiled[j].type = CHAR;
+                re_compiled[j].ch = c;
+            } break;
+        }
+        i ++;
+        j ++;
+    }
+
+    // UNUSED is a sentinel used to indicate the end of pattern
+    re_compiled[j].type = UNUSED;
+
+    return (re_t) re_compiled;
 }
 
 /* match: search for regexp anywhere in text */
