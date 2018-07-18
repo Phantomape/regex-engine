@@ -13,6 +13,15 @@ int re_matchp(regex_t *pattern, const char *text);
 /* Find matches of the txt pattern inside text (will compile automatically first). */
 int re_match(const char* pattern, const char* text);
 
+/* NFA state data structure */
+typedef struct State State;
+struct State {
+	int c;
+	State *out;
+	State *out1;
+	int lastlist;
+};
+
 #ifdef __cplusplus
 }
 #endif
