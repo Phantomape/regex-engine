@@ -13,7 +13,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 */
-    char *test_re = "ababad+adfa";
+    char *test_re = "a+b";
     post = re2post(test_re);
     if (post == NULL) {
         fprintf(stderr, "Invalid regexp %s\n", argv[1]);

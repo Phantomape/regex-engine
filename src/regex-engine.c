@@ -37,6 +37,9 @@ static int match_alphanum(char c);
 static int match_whitespace(char c);
 static int match_metachar(char c, const char* str);
 static int match_range(char c, const char* str);
+int matchhere(char *regexp, char *text);
+int match_question(char *regexp, char *text);
+int matchstar_shortest(int c, char *regexp, char *text);
 static int is_metachar(char c);
 
 static int match_digit(char c) {
@@ -272,6 +275,62 @@ int matchstar_longest(int c, char *regexp, char *text) {
  * ------------------------------------------------------
  */
 
+char* re2post(char *re);
+void post2nfa(char *postfix);
+
+State match_state = { Match };
+int num_states;
+
+/* state: initialize State */
+State* state(int c, State *out, State *out1) {
+    State *s;
+
+    num_states ++;
+    s = malloc(sizeof *s); // Merge with line 42 maybe
+    s->lastlist = 0;
+    s->c = c;
+    s->out = out;
+    s->out1 = out1;
+    return s;
+}
+
+/* frag: initialize Frag */
+Frag frag(State *start, Ptrlist *out) {
+	Frag n = { start, out };
+	return n;
+}
+
+/* list1: create singleton list containing just outp. */
+Ptrlist* list1(State **outp) {
+	Ptrlist *l;
+	
+	l = (Ptrlist*)outp;
+	l->next = NULL;
+	return l;
+}
+
+/* patch: patch the list of states at out to point to start. */
+void patch(Ptrlist *l, State *s) {
+	Ptrlist *next;
+	
+	for(; l; l=next){
+		next = l->next;
+		l->s = s;
+	}
+}
+
+
+/* append: join the two lists l1 and l2, returning the combination. */
+Ptrlist* append(Ptrlist *l1, Ptrlist *l2) {
+	Ptrlist *oldl1;
+	
+	oldl1 = l1;
+	while(l1->next)
+		l1 = l1->next;
+	l1->next = l2;
+	return oldl1;
+}
+
 /* re2post: convert infix regexp to postfix notation */
 char* re2post(char *re) {
     int nalt, natom;
@@ -349,4 +408,9 @@ char* re2post(char *re) {
 		*dst++ = '|';
 	*dst = 0;
 	return buf;
+}
+
+/* post2nfa: convert postfix notation to nfa */
+void post2nfa(char *postfix) {
+
 }
