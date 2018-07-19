@@ -7,12 +7,14 @@ int main(int argc, char **argv) {
     char *post;
     State *start;
 
+/*
     if (argc < 3) {
         fprintf(stderr, "usage: nfa regexp string ...\n");
         return 1;
     }
-
-    post = re2post(argv[1]);
+*/
+    char *test_re = "ababad+adfa";
+    post = re2post(test_re);
     if (post == NULL) {
         fprintf(stderr, "Invalid regexp %s\n", argv[1]);
         return 1;
