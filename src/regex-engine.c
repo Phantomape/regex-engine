@@ -275,11 +275,13 @@ int matchstar_longest(int c, char *regexp, char *text) {
  * ------------------------------------------------------
  */
 
-char* re2post(char *re);
-void post2nfa(char *postfix);
-
 State match_state = { Match };
+
 int num_states;
+
+static int listid;
+
+List l1, l2;
 
 /* state: initialize State */
 State* state(int c, State *out, State *out1) {
@@ -319,7 +321,6 @@ void patch(Ptrlist *l, State *s) {
 	}
 }
 
-
 /* append: join the two lists l1 and l2, returning the combination. */
 Ptrlist* append(Ptrlist *l1, Ptrlist *l2) {
 	Ptrlist *oldl1;
@@ -331,86 +332,222 @@ Ptrlist* append(Ptrlist *l1, Ptrlist *l2) {
 	return oldl1;
 }
 
-/* re2post: convert infix regexp to postfix notation */
+/* startlist: initialize a list */
+List* startlist(State *start, List *l) {
+	l->n = 0;
+	listid++;
+	addstate(l, start);
+	return l;
+}
+
+/* addstate: add s to l, following unlabeled arrows. */
+void addstate(List *l, State *s) {
+	if(s == NULL || s->lastlist == listid)
+		return;
+	s->lastlist = listid;
+	if(s->c == Split){
+		/* follow unlabeled arrows */
+		addstate(l, s->out);
+		addstate(l, s->out1);
+		return;
+	}
+	l->s[l->n++] = s;
+}
+
+/* ismatch: check whether state list contains a match */
+int ismatch(List *l) {
+	int i;
+
+	for(i=0; i<l->n; i++)
+		if(l->s[i] == &match_state)
+			return 1;
+	return 0;
+}
+
+/* step: step the NFA from the states in clist past the character c,
+ * to create next NFA state set nlist.
+ */
+void step(List *clist, int c, List *nlist) {
+	int i;
+	State *s;
+
+	listid++;
+	nlist->n = 0;
+	for(i=0; i<clist->n; i++){
+		s = clist->s[i];
+		if(s->c == c)
+			addstate(nlist, s->out);
+	}
+}
+
+/* Run NFA to determine whether it matches s. */
+int match_nfa(State *start, char *s) {
+	int i, c;
+	List *clist, *nlist, *t;
+
+	clist = startlist(start, &l1);
+	nlist = &l2;
+	for(; *s; s++){
+		c = *s & 0xFF;
+		step(clist, c, nlist);
+		t = clist; clist = nlist; nlist = t;	/* swap clist, nlist */
+	}
+	return ismatch(clist);
+}
+
+/* re2post: convert infix regexp to postfix notation. This is kind of tricky to see
+ * cause the original algorithm consists of two stages:
+ * 1. Insert the operator "." for juxtapostion
+ * 2. Convert the regex to RPN
+ * 
+ * side note: "a*" should be treate as a whole equivalent to "b"
+ */
 char* re2post(char *re) {
-    int nalt, natom;
+    int num_alternative, num_atom;
     static char buf[8000];
     char *dst;
+
+    // paren array is used to store info every time we encounter "(", so the index of
+    // paren array represent the index of "(" and were there an attribute called location,
+    // it will be location of "(" in the expression. The use of paren array as a stack is
+    // somehow quite similar to context switch.
     struct {
-        int nalt;
-        int natom;
+        int num_alternative;
+        int num_atom;
     } paren[100], *p; // ???
 
     p = paren;
     dst = buf;
-    nalt = 0;
-    natom = 0;
+    num_alternative = 0; // num_alternative indicates how many "|" should be added
+    num_atom = 0; // num_atom indicates whether we should add "." into the expression
     if (strlen(re) >= sizeof buf / 2)   return NULL;
 
 	for(; *re; re++){
 		switch(*re){
             case '(':
-                if(natom > 1){
-                    --natom;
+                // The following dot is targeted to expression before the "("
+                if(num_atom > 1){
+                    --num_atom;
                     *dst++ = '.';
                 }
                 if(p >= paren+100)
                     return NULL;
-                p->nalt = nalt;
-                p->natom = natom;
+                p->num_alternative = num_alternative;
+                p->num_atom = num_atom;
                 p++;
-                nalt = 0;
-                natom = 0;
+                num_alternative = 0;
+                num_atom = 0;
                 break;
             case '|':
-                if(natom == 0)
+                if(num_atom == 0)
                     return NULL;
-                while(--natom > 0)
+                while(--num_atom > 0)
                     *dst++ = '.';
-                nalt++;
+                num_alternative++;
                 break;
             case ')':
-                if(p == paren)
+                // ")" should not be the beginning of our expression
+                if(p == paren || num_atom == 0)
                     return NULL;
-                if(natom == 0)
-                    return NULL;
-                while(--natom > 0)
+                while(--num_atom > 0) // Still no idea why it is using while instead of if
                     *dst++ = '.';
-                for(; nalt > 0; nalt--)
+                for(; num_alternative > 0; num_alternative--)
                     *dst++ = '|';
                 --p;
-                nalt = p->nalt;
-                natom = p->natom;
-                natom++;
+                num_alternative = p->num_alternative;
+                num_atom = p->num_atom;
+                num_atom++;
                 break;
             case '*':
             case '+':
             case '?':
-                if(natom == 0)
+                // These characters should be treated as a whole with the former character,
+                // so we simply put them into expression
+                if(num_atom == 0)
                     return NULL;
                 *dst++ = *re;
                 break;
             default:
-                if(natom > 1){
-                    --natom;
+                // Consider the most common case like "abcd", which will be converted to "ab.c.d."
+                if(num_atom > 1){
+                    --num_atom;
                     *dst++ = '.';
                 }
                 *dst++ = *re;
-                natom++;
+                num_atom++;
                 break;
 		}
 	}
 	if(p != paren)
 		return NULL;
-	while(--natom > 0)
+	while(--num_atom > 0)
 		*dst++ = '.';
-	for(; nalt > 0; nalt--)
+	for(; num_alternative > 0; num_alternative--)
 		*dst++ = '|';
 	*dst = 0;
 	return buf;
 }
 
 /* post2nfa: convert postfix notation to nfa */
-void post2nfa(char *postfix) {
+State* post2nfa(char *postfix) {
+    char *p;
+	Frag stack[1000], *stackp, e1, e2, e;
+	State *s;
+	
+	// fprintf(stderr, "postfix: %s\n", postfix);
+
+	if(postfix == NULL)
+		return NULL;
+
+	#define push(s) *stackp++ = s
+	#define pop() *--stackp
+
+	stackp = stack;
+	for(p=postfix; *p; p++){
+		switch(*p){
+		default:
+			s = state(*p, NULL, NULL);
+			push(frag(s, list1(&s->out)));
+			break;
+		case '.':	/* catenate */
+			e2 = pop();
+			e1 = pop();
+			patch(e1.out, e2.start);
+			push(frag(e1.start, e2.out));
+			break;
+		case '|':	/* alternate */
+			e2 = pop();
+			e1 = pop();
+			s = state(Split, e1.start, e2.start);
+			push(frag(s, append(e1.out, e2.out)));
+			break;
+		case '?':	/* zero or one */
+			e = pop();
+			s = state(Split, e.start, NULL);
+			push(frag(s, append(e.out, list1(&s->out1))));
+			break;
+		case '*':	/* zero or more */
+			e = pop();
+			s = state(Split, e.start, NULL);
+			patch(e.out, s);
+			push(frag(s, list1(&s->out1)));
+			break;
+		case '+':	/* one or more */
+			e = pop();
+			s = state(Split, e.start, NULL);
+			patch(e.out, s);
+			push(frag(e.start, list1(&s->out1)));
+			break;
+		}
+	}
+
+	e = pop();
+	if(stackp != stack)
+		return NULL;
+
+	patch(e.out, &match_state);
+	return e.start;
+#undef pop
+#undef push
 
 }

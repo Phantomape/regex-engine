@@ -36,6 +36,12 @@ typedef union Ptrlist Ptrlist;
 /* Frag: a partial NFA without matching state filled in */
 typedef struct Frag Frag;
 
+/* DState: the DFA representation */
+typedef struct DState DState;
+
+/* List: list of NFA */
+typedef struct List List;
+
 struct State {
 	int c;
 	State *out;
@@ -51,6 +57,18 @@ union Ptrlist {
 struct Frag {
     State *start;
     Ptrlist *out;
+};
+
+struct List {
+    State **s;
+    int n;
+};
+
+struct DState {
+    List l;
+    DState *next[256];
+    DState *left;
+    DState *right;
 };
 
 #ifdef __cplusplus
